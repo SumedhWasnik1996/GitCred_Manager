@@ -15,6 +15,21 @@
 		<Version>1.0.0</Version>
 		<Product>Git Credential Manager</Product>
 		<Description>Manage multiple Git identities across all your local repositories.</Description>
+
+		<!--
+      Single-file publish settings:
+      - SelfContained: bundles .NET runtime — no install required on target machine
+      - PublishSingleFile: packs everything into one exe
+      - IncludeNativeLibrariesForSelfExtract: bundles WPF native dlls (PresentationNative, etc.)
+        into the exe; they are extracted to %TEMP% on first run and reused after that
+      - EnableCompressionInSingleFile: reduces exe size significantly
+    -->
+		<PublishSingleFile>true</PublishSingleFile>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+		<PublishTrimmed>false</PublishTrimmed>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -26,15 +41,9 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging"             Version="10.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug"       Version="10.0.0" />
-		<PackageReference Include="Microsoft.WindowsDesktop.App.WindowsForms" Version="10.0.0" Condition="false"/>
 	</ItemGroup>
 
-	<!-- Explicit WinForms framework reference for NotifyIcon -->
-	<ItemGroup>
-		<FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
-	</ItemGroup>
-
-	<!-- Embed icon assets as resources -->
+	<!-- Icon assets embedded as WPF resources (pack:// URI accessible) -->
 	<ItemGroup>
 		<Resource Include="Resources\Icons\app.ico"/>
 		<Resource Include="Resources\Icons\logo_24.png"/>
