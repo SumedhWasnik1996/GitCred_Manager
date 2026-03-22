@@ -9,25 +9,25 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using WpfApplication = System.Windows.Application;
-using WpfMessageBox  = System.Windows.MessageBox;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace GitCredMan.App;
 
 public partial class App : WpfApplication
 {
+    private const string MutexName = "GitCredMan_SingleInstance_v1";
     private static Mutex? _mutex;
+
     public static IServiceProvider Services { get; private set; } = null!;
 
-    // Crash log path — written before any UI is available
     private static readonly string CrashLog = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
         "GitCredMan_crash.txt");
 
+    // ── Startup ───────────────────────────────────────────────
+
     protected override void OnStartup(StartupEventArgs e)
     {
-        // ── Wire up ALL exception handlers FIRST, before anything else ──
-
-        // 1. Non-UI thread / background exceptions
         AppDomain.CurrentDomain.UnhandledException += (_, ex) =>
         {
             var msg = ex.ExceptionObject?.ToString() ?? "Unknown error";
@@ -35,7 +35,6 @@ public partial class App : WpfApplication
             ShowFatalError(msg);
         };
 
-        // 2. Unobserved Task exceptions (async void / fire-and-forget)
         TaskScheduler.UnobservedTaskException += (_, ex) =>
         {
             var msg = ex.Exception?.ToString() ?? "Unknown task error";
@@ -44,7 +43,6 @@ public partial class App : WpfApplication
             Dispatcher.Invoke(() => ShowFatalError(msg));
         };
 
-        // 3. UI thread exceptions
         DispatcherUnhandledException += (_, ex) =>
         {
             var msg = ex.Exception?.ToString() ?? "Unknown dispatcher error";
@@ -57,24 +55,24 @@ public partial class App : WpfApplication
 
         try
         {
-            // Single-instance guard
-            _mutex = new Mutex(true, "GitCredMan_SingleInstance_v1", out bool isFirst);
+            // Prevent duplicate windows if the user double-clicks the exe
+            _mutex = new Mutex(true, MutexName, out bool isFirst);
             if (!isFirst)
             {
-                WpfMessageBox.Show("Git Credential Manager is already running.",
-                    "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
-                Shutdown();
+                WpfMessageBox.Show(
+                    "Git Credential Manager is already open.",
+                    "Already Running",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                Shutdown(0);
                 return;
             }
 
-            // Build DI container
             Services = BuildServices();
 
-            // Apply saved theme before first window opens
             var settings = Services.GetRequiredService<ISettingsRepository>().Load();
             ApplyTheme(settings.Theme);
 
-            // Show main window
             var window = Services.GetRequiredService<MainWindow>();
             window.Show();
         }
@@ -86,40 +84,33 @@ public partial class App : WpfApplication
         }
     }
 
-    // ── DI composition root ───────────────────────────────────
+    // ── DI ────────────────────────────────────────────────────
 
     private static ServiceProvider BuildServices()
     {
         var sc = new ServiceCollection();
-
         sc.AddLogging(b => b.AddDebug().SetMinimumLevel(LogLevel.Debug));
-
-        sc.AddSingleton<ICredentialStore,    WindowsCredentialStore>();
+        sc.AddSingleton<ICredentialStore, WindowsCredentialStore>();
         sc.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
-        sc.AddSingleton<IRepositoryScanner,  RepositoryScannerService>();
-        sc.AddSingleton<IGitConfigService,   GitConfigService>();
-
+        sc.AddSingleton<IRepositoryScanner, RepositoryScannerService>();
+        sc.AddSingleton<IGitConfigService, GitConfigService>();
         sc.AddSingleton<AccountService>();
         sc.AddSingleton<MainViewModel>();
         sc.AddTransient<AccountDialogViewModel>();
         sc.AddSingleton<MainWindow>();
-
         return sc.BuildServiceProvider();
     }
 
-    // ── Theme switching ───────────────────────────────────────
+    // ── Theme ─────────────────────────────────────────────────
 
     public static void ApplyTheme(AppTheme theme)
     {
-        var app    = (App)Current;
+        var app = (App)Current;
         var merged = app.Resources.MergedDictionaries;
-
         if (merged.Count > 0) merged.RemoveAt(0);
-
         var uri = theme == AppTheme.Dark
-            ? new Uri("Themes/DarkTheme.xaml",  UriKind.Relative)
+            ? new Uri("Themes/DarkTheme.xaml", UriKind.Relative)
             : new Uri("Themes/LightTheme.xaml", UriKind.Relative);
-
         merged.Insert(0, new ResourceDictionary { Source = uri });
     }
 
@@ -127,7 +118,7 @@ public partial class App : WpfApplication
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _mutex?.ReleaseMutex();
+        try { _mutex?.ReleaseMutex(); } catch { }
         _mutex?.Dispose();
         base.OnExit(e);
     }
@@ -136,29 +127,20 @@ public partial class App : WpfApplication
 
     private static void WriteCrashLog(string source, string message)
     {
-        try
-        {
-            var text = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{message}\n\n";
-            File.AppendAllText(CrashLog, text);
-        }
-        catch { /* never throw from crash handler */ }
+        try { File.AppendAllText(CrashLog, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{message}\n\n"); }
+        catch { }
     }
 
     private static void ShowFatalError(string message)
     {
         try
         {
-            // Truncate for readability — full detail is in the crash log
             var short_msg = message.Length > 800
                 ? message[..800] + $"\n\n... (see {CrashLog} for full detail)"
                 : message + $"\n\n(also written to {CrashLog})";
-
-            WpfMessageBox.Show(
-                short_msg,
-                "Git Credential Manager — Fatal Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            WpfMessageBox.Show(short_msg, "Git Credential Manager — Fatal Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
-        catch { /* swallow — already in crash path */ }
+        catch { }
     }
 }
