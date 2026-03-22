@@ -1,0 +1,276 @@
+<UserControl x:Class="GitCredMan.App.Views.RepositoriesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:GitCredMan.App.Converters"
+             Background="{DynamicResource WindowBg}">
+
+  <UserControl.Resources>
+    <conv:BoolToVisibility   x:Key="BoolToVis"/>
+    <conv:NullToVisibility   x:Key="NullToVis"/>
+    <conv:HasRemoteBrush     x:Key="HasRemoteBrush"/>
+    <conv:BoolToAccentBrush  x:Key="BoolToAccent"/>
+
+    <!-- Card item: fade + slide in on load -->
+    <Style x:Key="CardListItem" TargetType="ListBoxItem"
+           BasedOn="{StaticResource {x:Type ListBoxItem}}">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin"  Value="0,0,0,6"/>
+      <Style.Triggers>
+        <EventTrigger RoutedEvent="Loaded">
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                               From="0" To="1" Duration="0:0:0.2">
+                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+              </DoubleAnimation>
+              <ThicknessAnimation Storyboard.TargetProperty="Margin"
+                                  From="0,8,0,6" To="0,0,0,6" Duration="0:0:0.2">
+                <ThicknessAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></ThicknessAnimation.EasingFunction>
+              </ThicknessAnimation>
+            </Storyboard>
+          </BeginStoryboard>
+        </EventTrigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid Margin="20,16,20,14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- toolbar -->
+      <RowDefinition Height="10"/>
+      <RowDefinition Height="Auto"/>   <!-- scan banner -->
+      <RowDefinition Height="Auto"/>   <!-- banner spacer -->
+      <RowDefinition Height="Auto"/>   <!-- search bar (full width) -->
+      <RowDefinition Height="10"/>
+      <RowDefinition Height="*"/>      <!-- card list -->
+    </Grid.RowDefinitions>
+
+    <!-- ── Toolbar ─────────────────────────────────────────── -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+
+      <TextBlock Grid.Column="0" Text="Repositories"
+                 FontSize="{StaticResource FontXl}" FontWeight="SemiBold"
+                 Foreground="{DynamicResource PrimaryText}" VerticalAlignment="Center"/>
+
+      <!-- Scan button with spinner -->
+      <Button Grid.Column="2" Command="{Binding ScanCommand}"
+              Padding="12,7" Style="{StaticResource AccentButton}">
+        <Grid>
+          <StackPanel Orientation="Horizontal">
+            <StackPanel.Style>
+              <Style TargetType="StackPanel">
+                <Setter Property="Visibility" Value="Visible"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsScanning}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </StackPanel.Style>
+            <TextBlock Text="🔍  Scan for Repos" VerticalAlignment="Center"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <StackPanel.Style>
+              <Style TargetType="StackPanel">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsScanning}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </StackPanel.Style>
+            <Canvas Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,8,0">
+              <Canvas.RenderTransform>
+                <RotateTransform CenterX="7" CenterY="7" Angle="{Binding SpinnerAngle}"/>
+              </Canvas.RenderTransform>
+              <Path Stroke="White" StrokeThickness="2"
+                    StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                    Data="M 7,1 A 6,6 0 1,1 1,7"/>
+            </Canvas>
+            <TextBlock Text="Cancel" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Grid>
+      </Button>
+
+      <Button Grid.Column="4" Content="⚡  Apply All"
+              Command="{Binding ApplyAllCommand}"
+              Padding="12,7"
+              ToolTip="Apply account settings to every repository"/>
+    </Grid>
+
+    <!-- ── Scan progress banner ────────────────────────────── -->
+    <Border Grid.Row="2"
+            Background="{DynamicResource CardBg}"
+            BorderBrush="{DynamicResource AccentBrush}"
+            BorderThickness="1" CornerRadius="{StaticResource RadiusLg}"
+            Padding="14,10"
+            Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Canvas Grid.Column="0" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0">
+          <Canvas.RenderTransform>
+            <RotateTransform CenterX="9" CenterY="9" Angle="{Binding SpinnerAngle}"/>
+          </Canvas.RenderTransform>
+          <Path Stroke="{DynamicResource AccentBrush}" StrokeThickness="2.5"
+                StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                Data="M 9,2 A 7,7 0 1,1 2,9"/>
+        </Canvas>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding ScanStatus}"
+                     Foreground="{DynamicResource PrimaryText}"
+                     FontSize="{StaticResource FontSm}" TextTrimming="CharacterEllipsis"/>
+          <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+            <TextBlock Text="{Binding ScanFound, Mode=OneWay}"
+                       Foreground="{DynamicResource AccentBrush}" FontSize="{StaticResource FontXs}"/>
+            <TextBlock Text=" repositories found so far"
+                       Foreground="{DynamicResource SecondaryText}" FontSize="{StaticResource FontXs}"/>
+          </StackPanel>
+        </StackPanel>
+        <TextBlock Grid.Column="2" Text="Click Scan to cancel"
+                   Foreground="{DynamicResource SecondaryText}"
+                   FontSize="{StaticResource FontXs}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="3" Height="10"
+            Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"/>
+
+    <!-- ── Full-width search ───────────────────────────────── -->
+    <Grid Grid.Row="4">
+      <!-- Icon overlaid on left of textbox -->
+      <TextBox Text="{Binding RepoFilter, UpdateSourceTrigger=PropertyChanged}"
+               Padding="36,8,12,8"/>
+      <!-- Search icon — purely decorative, not hit-testable -->
+      <TextBlock Text="🔍" FontSize="13"
+                 IsHitTestVisible="False"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Left"
+                 Margin="12,0,0,0"
+                 Foreground="{DynamicResource SecondaryText}"/>
+      <!-- Watermark -->
+      <TextBlock Text="Filter by name, path or remote…"
+                 IsHitTestVisible="False"
+                 Foreground="{DynamicResource SecondaryText}"
+                 FontSize="{StaticResource FontMd}"
+                 VerticalAlignment="Center"
+                 Margin="36,0,0,0">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding RepoFilter}" Value="">
+                <Setter Property="Visibility" Value="Visible"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+    </Grid>
+
+    <!-- ── Repository card list ────────────────────────────── -->
+    <ListBox Grid.Row="6"
+             x:Name="RepoList"
+             ItemsSource="{Binding FilteredRepositories}"
+             SelectedItem="{Binding SelectedRepository}"
+             ItemContainerStyle="{StaticResource CardListItem}"
+             LayoutUpdated="RepoList_LayoutUpdated"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             Background="Transparent"
+             BorderThickness="0"
+             Padding="0">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <!-- Full-width card -->
+          <Border Background="{DynamicResource CardBg}"
+                  BorderBrush="{DynamicResource SeparatorBrush}"
+                  BorderThickness="1"
+                  CornerRadius="{StaticResource RadiusLg}"
+                  Padding="14,12">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>  <!-- status dot -->
+                <ColumnDefinition Width="*"/>     <!-- repo info -->
+                <ColumnDefinition Width="Auto"/>  <!-- account badge -->
+                <ColumnDefinition Width="Auto"/>  <!-- action buttons -->
+              </Grid.ColumnDefinitions>
+
+              <!-- Remote status dot -->
+              <Ellipse Grid.Column="0" Width="8" Height="8"
+                       Fill="{Binding HasRemote, Converter={StaticResource HasRemoteBrush}}"
+                       VerticalAlignment="Top" Margin="0,5,10,0"
+                       ToolTip="{Binding HasRemote, StringFormat='Has remote: {0}'}"/>
+
+              <!-- Repo info -->
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding DirectoryName}"
+                           FontWeight="SemiBold" FontSize="13"
+                           Foreground="{DynamicResource PrimaryText}"/>
+                <TextBlock Text="{Binding Path}"
+                           Foreground="{DynamicResource SecondaryText}"
+                           FontSize="{StaticResource FontXs}"
+                           FontFamily="{StaticResource MonoFont}"
+                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="{Binding RemoteUrl}"
+                           Foreground="{DynamicResource SecondaryText}"
+                           FontSize="{StaticResource FontXs}"
+                           FontFamily="{StaticResource MonoFont}"
+                           Margin="0,1,0,0" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding HasRemote, Converter={StaticResource BoolToVis}}"/>
+              </StackPanel>
+
+              <!-- Account badge (text set in code-behind) -->
+              <Border Grid.Column="2"
+                      Background="{DynamicResource Surface2Brush}"
+                      BorderBrush="{DynamicResource SeparatorBrush}"
+                      BorderThickness="1"
+                      CornerRadius="{StaticResource RadiusMd}"
+                      Padding="9,4" VerticalAlignment="Center"
+                      Margin="10,0">
+                <TextBlock x:Name="AccountBadge"
+                           FontSize="{StaticResource FontXs}"
+                           Foreground="{DynamicResource SecondaryText}"
+                           MaxWidth="140"
+                           TextTrimming="CharacterEllipsis"/>
+              </Border>
+
+              <!-- Action bar: Assign | Apply | Open | ▾ More -->
+              <StackPanel Grid.Column="3" Orientation="Horizontal"
+                          VerticalAlignment="Center">
+
+                <Button Content="↳ Assign" FontSize="11" Padding="8,5" Margin="0,0,4,0"
+                        ToolTip="Assign a specific account"
+                        Tag="{Binding}" Click="AssignBtn_Click"/>
+
+                <Button Content="⚡" FontSize="11" Padding="8,5" Margin="0,0,4,0"
+                        ToolTip="Apply git config now"
+                        Tag="{Binding}" Click="ApplyBtn_Click"/>
+
+                <!-- Dropdown: Open | Remove | Delete -->
+                <Button FontSize="11" Padding="8,5"
+                        Style="{StaticResource GhostButton}"
+                        ToolTip="More actions"
+                        Tag="{Binding}"
+                        Click="MoreBtn_Click"
+                        Content="•••"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </Grid>
+</UserControl>
