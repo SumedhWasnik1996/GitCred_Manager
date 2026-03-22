@@ -59,7 +59,7 @@ Tokens are encrypted at rest using **Windows Credential Manager (DPAPI)** — ne
 
 ## Download
 
-Go to the [**Releases**](https://github.com/your-org/git-cred-man/releases/latest) page and download:
+Go to the [**Releases**](/releases/latest) page and download:
 
 | File | Description |
 |---|---|
