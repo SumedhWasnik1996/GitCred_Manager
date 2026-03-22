@@ -1,116 +1,174 @@
+<div align="center">
+
+<img src="GitCredMan/GitCredMan.App/Resources/Icons/logo_64.png" width="80" height="80" alt="Git Credential Manager logo"/>
+
 # Git Credential Manager
-### C# · .NET 10 · WPF
 
-A native Windows desktop application for managing multiple Git identities across all your local repositories. Tokens stored encrypted in **Windows Credential Manager** (DPAPI). Switchable **Dark** (GitHub Desktop) and **Light** (Windows 11 Fluent) themes.
+**Manage multiple Git identities across all your local repositories — on Windows.**
 
----
+[![Release](https://img.shields.io/github/v/release/your-org/git-cred-man?style=flat-square&color=1F6FEB)](https://github.com/your-org/git-cred-man/releases/latest)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square)](https://dotnet.microsoft.com)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square)](https://github.com/your-org/git-cred-man/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-22C55E?style=flat-square)](LICENSE)
 
-## Solution structure
+[**Download EXE →**](https://github.com/your-org/git-cred-man/releases/latest) · [Release Notes](RELEASE_NOTES_v1.0.0.md) · [Developer Guide](docs/Developer_Guide.md)
 
-```
-GitCredMan.sln
-├── GitCredMan.Core/          # Pure C# class library — no WPF dependency
-│   ├── Models/Models.cs          Account, Repository, AppSettings, enums, OperationResult
-│   ├── Interfaces/IServices.cs   ICredentialStore, ISettingsRepository, IRepositoryScanner, IGitConfigService
-│   └── Services/
-│       ├── WindowsCredentialStore.cs   P/Invoke advapi32 — DPAPI-backed token storage
-│       ├── JsonSettingsRepository.cs   %APPDATA%\GitCredMan\settings.json (no secrets)
-│       ├── RepositoryScannerService.cs Async recursive scanner, cancellable, progress-reporting
-│       ├── GitConfigService.cs         Applies user.name / user.email / remote URL via git-config
-│       └── AccountService.cs           Domain logic — CRUD, defaults, token coordination
-│
-├── GitCredMan.App/           # WPF presentation layer
-│   ├── App.xaml / App.xaml.cs            DI container, single-instance mutex, theme bootstrap
-│   ├── Themes/
-│   │   ├── DarkTheme.xaml                GitHub Desktop-style dark palette
-│   │   ├── LightTheme.xaml               Windows 11 Fluent light palette
-│   │   └── SharedStyles.xaml             All control templates (theme-agnostic semantic keys)
-│   ├── Converters/Converters.cs
-│   ├── ViewModels/
-│   │   ├── MainViewModel.cs              Accounts + Repos + Scan + Theme + Filter
-│   │   ├── AccountDialogViewModel.cs     Add/Edit form state + validation
-│   │   └── AssignAccountDialogViewModel.cs
-│   └── Views/
-│       ├── MainWindow.xaml/.cs           Chrome, DWM dark title bar, tray icon
-│       ├── AccountsPanel.xaml/.cs        Account list with cards, badges, star button
-│       ├── RepositoriesPanel.xaml/.cs    Repo list with filter, scan progress, per-row actions
-│       ├── AccountDialog.xaml/.cs        Secure add/edit form with show/hide token
-│       └── AssignAccountDialog.xaml/.cs  Per-repo account assignment
-│
-└── GitCredMan.Tests/         # xUnit · NSubstitute · FluentAssertions
-    └── Core/
-        ├── AccountServiceTests.cs        28 tests — CRUD, defaults, token store, resolve
-        ├── RepositoryScannerTests.cs     Remote URL parsing, path helpers
-        ├── GitConfigServiceTests.cs      URL builder, SSH passthrough, nonexistent path
-        ├── ModelTests.cs                 Account, OperationResult, AppSettings invariants
-        └── PersistenceServiceTests.cs    Round-trip JSON, corrupt file, token exclusion
-```
+</div>
 
 ---
 
-## Prerequisites
+## What is this?
 
-| Tool | Version |
-|------|---------|
-| .NET SDK | 10.0+ |
-| Visual Studio | 2022 17.8+ (or `dotnet` CLI) |
-| Windows | 10 1903+ (for DWM dark title bar) |
-| git | Any — must be on `PATH` |
+If you work with **multiple GitHub / GitLab / company accounts** on the same machine, git can only use one global identity at a time. Every repository gets the same `user.name`, `user.email`, and credentials — making it hard to separate work from personal projects.
+
+**Git Credential Manager** solves this by letting you:
+
+- Store multiple git identities, each with its own Personal Access Token
+- Assign a different identity to each repository
+- Apply `user.name`, `user.email`, and an authenticated remote URL to any repo in one click
+- Detect existing git identities already configured on your machine and import them
+
+Tokens are encrypted at rest using **Windows Credential Manager (DPAPI)** — never written to disk in plaintext.
 
 ---
 
-## Build & run
+
+## Features
+
+### 🔑 Accounts
+- Add, edit, and delete unlimited git identities
+- Each account stores: label, username, email, host (e.g. `github.com`), and a PAT
+- Mark one account as the **global default** — applied to all unassigned repositories
+- Detect existing git identities from `.git/config` files across your machine
+- One-click import with pre-filled Add Account dialog
+
+### 📂 Repositories
+- Scans **all fixed drives** recursively for `.git` directories
+- Assign a specific account to any repository, or let it inherit the global default
+- **Apply All** — write the correct `user.name`, `user.email`, and HTTPS remote URL to every repo at once
+- Per-card actions: Assign, Apply ⚡, Open in Explorer, Remove from list, Delete from disk
+
+### 🎨 UI
+- Vertical nav rail with custom logo and page animations
+- Dark theme (GitHub Desktop-inspired) and Light theme (Windows 11 Fluent)
+- Runtime theme switching — no restart required
+- DWM-matched title bar colour for all windows and dialogs
+- System tray — minimises to tray, restores on double-click
+
+---
+
+## Download
+
+Go to the [**Releases**](https://github.com/your-org/git-cred-man/releases/latest) page and download:
+
+| File | Description |
+|---|---|
+| `GitCredMan.exe` | Self-contained — no prerequisites, runs on any Windows 10/11 x64 machine |
+| Source code (zip / tar.gz) | Build it yourself — see [Building from source](#building-from-source) |
+
+---
+
+## System Requirements
+
+| Component | Requirement |
+|---|---|
+| OS | Windows 10 v1903+ · Windows 11 |
+| Architecture | x64 |
+| .NET | 10.0 Desktop Runtime *(framework-dependent build only)* |
+| Git | Any version on the system `PATH` |
+
+---
+
+## Building from Source
+
+### Prerequisites
+
+- [Visual Studio 2022+](https://visualstudio.microsoft.com/) with **.NET desktop development** workload, **or**
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) + any editor
+
+### Clone and build
 
 ```powershell
-# Clone / extract, then:
-cd GitCredMan
+git clone https://github.com/your-org/git-cred-man.git
+cd git-cred-man
 dotnet restore
 dotnet build
-
-# Run the app
 dotnet run --project GitCredMan.App
-
-# Run all tests
-dotnet test
-
-# Publish single-file exe
-dotnet publish GitCredMan.App -c Release -r win-x64 --self-contained false -o ./publish
 ```
 
----
-
-## Security design
-
-### Token storage
-Tokens are stored exclusively via **Windows Credential Manager** (`CredWriteW` / `CredReadW`).  
-Key format: `GitCredMan:{account-id}`.  
-The OS encrypts the blob with **DPAPI**, scoped to the current Windows user session.  
-On deletion, `CredDeleteW` is called. Token buffers in unmanaged memory are zeroed with `Span<byte>.Clear()` before `Marshal.FreeHGlobal`. Managed token strings are nilled and `GC.Collect` is hinted after use.
-
-### What is never stored
-- The `settings.json` file contains **no tokens, passwords, or secrets**.  
-- `Account.HasStoredToken` is `[JsonIgnore]` — confirmed by the persistence tests.  
-- The `AccountDialog` code-behind zeros `_tokenBuffer` in `ClearToken()` and calls it from both `Cancel` and `OnClosed`.
-
-### Preventing accidental logout
-There is no "sign out" button. The only way to remove an account's credentials is the explicit **Delete** flow, which shows a confirmation dialog listing all consequences.
-
-### git remote URL embedding
-For HTTPS remotes, the authenticated URL `https://user:token@host/...` is written to the **local** `.git/config` via `git remote set-url origin`. This never modifies `~/.gitconfig`. SSH remotes are detected and left untouched.
-
----
-
-## Theme switching
-
-The theme toggle in the header bar swaps `DarkTheme.xaml` ↔ `LightTheme.xaml` at runtime by replacing the first entry in `Application.Resources.MergedDictionaries`. All control styles reference **semantic brush keys** (`WindowBg`, `PrimaryText`, `AccentBrush`, etc.) defined in both theme files, so every control re-renders immediately with no restart required. The DWM title bar dark/light mode is also updated via `DwmSetWindowAttribute`.
-
----
-
-## Running the tests
+### Run tests
 
 ```powershell
-dotnet test --logger "console;verbosity=detailed"
+dotnet test
+# Expected: 29 passed, 0 failed
 ```
 
-The test suite covers all Core services without any WPF dependency. `PersistenceServiceTests` uses a temp directory override via an `internal` constructor on `JsonSettingsRepository`.
+### Publish
 
+**Framework-dependent** *(~15 MB, requires .NET 10 on target machine)*:
+```powershell
+dotnet publish GitCredMan.App -c Release -r win-x64 --self-contained false `
+  -p:PublishSingleFile=true -o .\publish
+```
+
+**Self-contained** *(~180 MB, no prerequisites)*:
+```powershell
+dotnet publish GitCredMan.App -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -o .\publish
+```
+
+---
+
+## Project Structure
+
+```
+GitCredMan/
+├── GitCredMan.Core/          # Business logic, models, services (no WPF)
+│   ├── Models/Models.cs      # Account, Repository, AppSettings, DiscoveredIdentity
+│   ├── Interfaces/           # ICredentialStore, ISettingsRepository, etc.
+│   └── Services/             # AccountService, WindowsCredentialStore,
+│                             # RepositoryScannerService, GitConfigService,
+│                             # GitIdentityScanner, JsonSettingsRepository
+│
+├── GitCredMan.App/           # WPF presentation layer
+│   ├── Views/                # MainWindow, AccountsPanel, RepositoriesPanel,
+│   │                         # AccountDialog, AssignAccountDialog
+│   ├── ViewModels/           # MainViewModel, AccountDialogViewModel
+│   ├── Themes/               # DarkTheme.xaml, LightTheme.xaml, SharedStyles.xaml
+│   ├── Converters/           # Value converters for XAML bindings
+│   └── Resources/Icons/      # app.ico, logo_*.png
+│
+└── GitCredMan.Tests/         # xUnit · NSubstitute · FluentAssertions
+    └── Core/                 # 29 tests covering all Core services
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | C# 13 / .NET 10 |
+| UI Framework | WPF (Windows Presentation Foundation) |
+| Architecture | MVVM — CommunityToolkit.Mvvm 8.3 |
+| Security | Windows Credential Manager via P/Invoke (`advapi32.dll`) |
+| DI | `Microsoft.Extensions.DependencyInjection` |
+| Serialisation | `System.Text.Json` |
+| Testing | xUnit · NSubstitute · FluentAssertions |
+
+---
+
+## Security
+
+- Tokens are stored encrypted using **Windows DPAPI** via `CredWriteW` / `CredReadW`
+- The `settings.json` file contains **no secrets** — only account metadata (name, email, host)
+- Tokens are zeroed from unmanaged memory after use (`Span<byte>.Clear()`)
+- SSH remotes are never modified — only HTTPS remotes receive embedded credentials
+
+> **Note:** Embedding a token in the HTTPS remote URL means it is visible via `git remote -v`. For higher security, use SSH key authentication instead.
+
+---
+
+## License
+
+[MIT](LICENSE) — see the LICENSE file for details.
