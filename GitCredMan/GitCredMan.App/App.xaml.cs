@@ -109,8 +109,8 @@ public partial class App : WpfApplication
         var merged = app.Resources.MergedDictionaries;
         if (merged.Count > 0) merged.RemoveAt(0);
         var uri = theme == AppTheme.Dark
-            ? new Uri("Themes/DarkTheme.xaml", UriKind.Relative)
-            : new Uri("Themes/LightTheme.xaml", UriKind.Relative);
+            ? new Uri("pack://application:,,,/Themes/DarkTheme.xaml")
+            : new Uri("pack://application:,,,/Themes/LightTheme.xaml");
         merged.Insert(0, new ResourceDictionary { Source = uri });
     }
 
