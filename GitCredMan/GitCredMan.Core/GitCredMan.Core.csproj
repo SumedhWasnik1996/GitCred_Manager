@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GitCredMan.Core</RootNamespace>
+    <AssemblyName>GitCredMan.Core</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- System.Text.Json is included in net10.0 — no separate package needed -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

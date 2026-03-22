@@ -1,0 +1,15 @@
+<Application x:Class="GitCredMan.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- StartupUri is NOT set here — we create the window manually in App.xaml.cs
+       so we can wire up DI and theme before the first pixel renders. -->
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- Dark theme loaded by default; App.xaml.cs swaps it at runtime -->
+        <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
+        <ResourceDictionary Source="Themes/SharedStyles.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>
