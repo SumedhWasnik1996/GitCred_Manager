@@ -1,120 +1,209 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media.Animation;
 using GitCredMan.App.ViewModels;
-using GitCredMan.Core.Models;
+using GitCredMan.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GitCredMan.App.Views;
 
 public partial class AccountDialog : Window
 {
     private readonly AccountDialogViewModel _vm;
-    private bool   _showingToken = false;
-    private string _tokenBuffer  = string.Empty;
+    private readonly OAuthService _oauthSvc;
+
+    private CancellationTokenSource? _oauthCts;
+    private string? _currentVerificationUri;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
-    public string CollectedToken => _tokenBuffer;
-
     public AccountDialog(AccountDialogViewModel vm)
     {
         InitializeComponent();
-        _vm         = vm;
+        _vm = vm;
+        _oauthSvc = App.Services.GetRequiredService<OAuthService>();
         DataContext = _vm;
 
-        // Apply DWM dark/light title bar to match current theme
         SourceInitialized += (_, _) => ApplyTitleBar();
 
         if (_vm.IsEditMode)
         {
             TitleBlock.Text = "Edit Account";
-            Title           = "Edit Account";
+            Title = "Edit Account";
         }
+
+        StartSpinnerAnimation();
     }
 
-    private void ApplyTitleBar()
-    {
-        var hwnd = new WindowInteropHelper(this).Handle;
-        if (hwnd == IntPtr.Zero) return;
-        // Read IsDark from app resources (set by theme file)
-        bool isDark = true;
-        if (System.Windows.Application.Current.TryFindResource("IsDark") is bool b)
-            isDark = b;
-        int dark = isDark ? 1 : 0;
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
-    }
+    // ── Spinner ───────────────────────────────────────────────
 
-    private void ShowHideBtn_Click(object sender, RoutedEventArgs e)
+    private void StartSpinnerAnimation()
     {
-        _showingToken = !_showingToken;
-        ShowHideBtn.Content = _showingToken ? "Hide" : "Show";
-
-        if (_showingToken)
+        var anim = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(1)))
         {
-            _tokenBuffer             = TokenPasswordBox.Password;
-            TokenPlainBox.Text       = _tokenBuffer;
-            TokenPasswordBox.Visibility = Visibility.Collapsed;
-            TokenPlainBox.Visibility    = Visibility.Visible;
-            TokenPlainBox.Focus();
-        }
-        else
+            RepeatBehavior = RepeatBehavior.Forever,
+        };
+        SpinnerTransform.BeginAnimation(
+            System.Windows.Media.RotateTransform.AngleProperty, anim);
+    }
+
+    // ── Sign in ───────────────────────────────────────────────
+
+    private async void SignInBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var host = _vm.Host.Trim().ToLowerInvariant();
+        var provider = OAuthProvider.For(host);
+
+        if (provider is null)
         {
-            _tokenBuffer              = TokenPlainBox.Text;
-            TokenPasswordBox.Password = _tokenBuffer;
-            TokenPlainBox.Text        = string.Empty;
-            TokenPlainBox.Visibility     = Visibility.Collapsed;
-            TokenPasswordBox.Visibility  = Visibility.Visible;
-            TokenPasswordBox.Focus();
-        }
-    }
-
-    private void TokenPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
-    {
-        _tokenBuffer = TokenPasswordBox.Password;
-        _vm.NotifyTokenChanged(!string.IsNullOrEmpty(_tokenBuffer));
-    }
-
-    private void TokenPlainBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        _tokenBuffer = TokenPlainBox.Text;
-        _vm.NotifyTokenChanged(!string.IsNullOrEmpty(_tokenBuffer));
-    }
-
-    private void SaveBtn_Click(object sender, RoutedEventArgs e)
-    {
-        _tokenBuffer = _showingToken ? TokenPlainBox.Text : TokenPasswordBox.Password;
-
-        var err = _vm.ValidationError;
-        if (err is not null)
-        {
-            ErrorText.Text          = err;
-            ErrorBanner.Visibility  = Visibility.Visible;
+            ShowError($"OAuth is not configured for '{host}'.\n\n" +
+                      "Supported hosts: github.com, gitlab.com");
             return;
         }
 
+        if (provider.ClientId.StartsWith("YOUR_"))
+        {
+            ShowError("OAuth client ID not configured.\n\n" +
+                      $"Register an OAuth App at {host}, then update the ClientId " +
+                      "in OAuthService.cs → OAuthProvider.KnownProviders.");
+            return;
+        }
+
+        CancelOAuthIfRunning();
+        _oauthCts = new CancellationTokenSource();
+
+        _vm.IsOAuthPending = true;
+        _vm.OAuthStatus = "Requesting authorisation code…";
+        _vm.OAuthCompleted = false;
+        DeviceCodeCard.Visibility = Visibility.Collapsed;
+        ErrorBanner.Visibility = Visibility.Collapsed;
+
+        // Step 1 — get device + user codes
+        var (deviceCode, startError) =
+            await _oauthSvc.StartDeviceFlowAsync(provider, _oauthCts.Token);
+
+        if (deviceCode is null)
+        {
+            _vm.IsOAuthPending = false;
+            ShowError($"Could not start sign-in:\n{startError}");
+            return;
+        }
+
+        // Step 2 — show code, open browser
+        _currentVerificationUri = deviceCode.VerificationUri;
+        UserCodeText.Text = deviceCode.UserCode;
+        VerificationUriText.Text = deviceCode.VerificationUri;
+        DeviceCodeCard.Visibility = Visibility.Visible;
+        _vm.OAuthUserCode = deviceCode.UserCode;
+        _vm.OAuthStatus = "Waiting for browser authorisation…";
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(deviceCode.VerificationUri)
+            { UseShellExecute = true });
+        }
+        catch { /* user can click the link manually */ }
+
+        // Step 3 — poll until approved / timeout / cancel
+        var progress = new Progress<string>(msg =>
+            Dispatcher.Invoke(() => _vm.OAuthStatus = msg));
+
+        var result = await _oauthSvc.PollForTokenAsync(
+            provider, deviceCode, progress, _oauthCts.Token);
+
+        _vm.IsOAuthPending = false;
+
+        if (!result.Success)
+        {
+            if (result.Error != "Cancelled.")
+                ShowError($"Sign-in failed:\n{result.Error}");
+            return;
+        }
+
+        // Step 4 — success
+        _vm.NotifyOAuthCompleted(
+            result.AccessToken!,
+            result.RefreshToken,
+            result.Username,
+            result.Email);
+    }
+
+    // ── Copy code / open link ─────────────────────────────────
+
+    private void CopyCodeBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_vm.OAuthUserCode))
+            Clipboard.SetText(_vm.OAuthUserCode);
+    }
+
+    private void VerificationUri_Click(object sender,
+        System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_currentVerificationUri))
+            try
+            {
+                Process.Start(new ProcessStartInfo(_currentVerificationUri)
+                { UseShellExecute = true });
+            }
+            catch { }
+    }
+
+    // ── Save / Cancel ─────────────────────────────────────────
+
+    private void SaveBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var err = _vm.ValidationError;
+        if (err is not null) { ShowError(err); return; }
         ErrorBanner.Visibility = Visibility.Collapsed;
         DialogResult = true;
     }
 
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
-        ClearToken();
+        CancelOAuthIfRunning();
+        ClearTokens();
         DialogResult = false;
     }
 
-    public void ClearToken()
+    // ── Helpers ───────────────────────────────────────────────
+
+    public void ClearTokens()
     {
-        _tokenBuffer = string.Empty;
-        TokenPasswordBox.Clear();
-        TokenPlainBox.Text = string.Empty;
+        _vm.OAuthAccessToken = null;
+        _vm.OAuthRefreshToken = null;
+    }
+
+    private void CancelOAuthIfRunning()
+    {
+        _oauthCts?.Cancel();
+        _oauthCts?.Dispose();
+        _oauthCts = null;
+        _vm.IsOAuthPending = false;
+    }
+
+    private void ShowError(string msg)
+    {
+        ErrorText.Text = msg;
+        ErrorBanner.Visibility = Visibility.Visible;
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        ClearToken();
+        CancelOAuthIfRunning();
+        ClearTokens();
         base.OnClosed(e);
+    }
+
+    private void ApplyTitleBar()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        bool isDark = Application.Current.TryFindResource("IsDark") is bool b && b;
+        int dark = isDark ? 1 : 0;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
     }
 }

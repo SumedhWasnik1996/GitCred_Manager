@@ -53,3 +53,5 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 /GitCredMan/.vs/GitCredMan
+
+.vs

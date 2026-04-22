@@ -55,7 +55,6 @@ public partial class App : WpfApplication
 
         try
         {
-            // Prevent duplicate windows if the user double-clicks the exe
             _mutex = new Mutex(true, MutexName, out bool isFirst);
             if (!isFirst)
             {
@@ -90,14 +89,26 @@ public partial class App : WpfApplication
     {
         var sc = new ServiceCollection();
         sc.AddLogging(b => b.AddDebug().SetMinimumLevel(LogLevel.Debug));
+
+        // Core services
         sc.AddSingleton<ICredentialStore, WindowsCredentialStore>();
         sc.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
         sc.AddSingleton<IRepositoryScanner, RepositoryScannerService>();
         sc.AddSingleton<IGitConfigService, GitConfigService>();
+
+        // OAuth — registered before AccountService because AccountService depends on it
+        sc.AddSingleton<OAuthService>();
+
+        // Domain service
         sc.AddSingleton<AccountService>();
+
+        // ViewModels
         sc.AddSingleton<MainViewModel>();
         sc.AddTransient<AccountDialogViewModel>();
+
+        // Views
         sc.AddSingleton<MainWindow>();
+
         return sc.BuildServiceProvider();
     }
 
@@ -135,10 +146,10 @@ public partial class App : WpfApplication
     {
         try
         {
-            var short_msg = message.Length > 800
+            var shortMsg = message.Length > 800
                 ? message[..800] + $"\n\n... (see {CrashLog} for full detail)"
                 : message + $"\n\n(also written to {CrashLog})";
-            WpfMessageBox.Show(short_msg, "Git Credential Manager — Fatal Error",
+            WpfMessageBox.Show(shortMsg, "Git Credential Manager — Fatal Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch { }

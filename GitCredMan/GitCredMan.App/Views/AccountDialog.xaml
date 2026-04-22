@@ -11,122 +11,216 @@
         Icon="/Resources/Icons/app.ico"
         Background="{DynamicResource PanelBg}">
 
-  <Window.Resources>
-    <conv:BoolToVisibility x:Key="BoolToVis"/>
-    <conv:InverseBool      x:Key="InvBool"/>
-  </Window.Resources>
+	<Window.Resources>
+		<conv:BoolToVisibility        x:Key="BoolToVis"/>
+		<conv:InverseBoolToVisibility x:Key="InvBoolToVis"/>
+	</Window.Resources>
 
-  <StackPanel Margin="28,24,28,24">
+	<StackPanel Margin="28,24,28,24">
 
-    <!-- Title -->
-    <TextBlock x:Name="TitleBlock"
-               Text="Add Account"
-               FontSize="{StaticResource FontXl}"
-               FontWeight="SemiBold"
-               Foreground="{DynamicResource PrimaryText}"
-               Margin="0,0,0,20"/>
+		<!-- Title -->
+		<TextBlock x:Name="TitleBlock"
+				   Text="Add Account"
+				   FontSize="{StaticResource FontXl}"
+				   FontWeight="SemiBold"
+				   Foreground="{DynamicResource PrimaryText}"
+				   Margin="0,0,0,20"/>
 
-    <!-- Account name -->
-    <Label Content="Account Label  (e.g. Work GitHub, Personal GitLab)"/>
-    <TextBox x:Name="NameBox"
-             Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-             Margin="0,0,0,14"/>
+		<!-- Account label -->
+		<Label Content="Account Label  (e.g. Work GitHub, Personal GitLab)"/>
+		<TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+				 Margin="0,0,0,14"/>
 
-    <!-- Username -->
-    <Label Content="Git Username"/>
-    <TextBox x:Name="UsernameBox"
-             Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-             Margin="0,0,0,14"/>
+		<!-- Host -->
+		<Label Content="Host  (e.g. github.com, gitlab.com)"/>
+		<TextBox Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}"
+				 Margin="0,0,0,20"/>
 
-    <!-- Email -->
-    <Label Content="Email Address"/>
-    <TextBox x:Name="EmailBox"
-             Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
-             Margin="0,0,0,14"/>
+		<!-- ── How it works ──────────────────────────────────────── -->
+		<Border Background="{DynamicResource CardBg}"
+				BorderBrush="{DynamicResource SeparatorBrush}"
+				BorderThickness="1"
+				CornerRadius="{StaticResource RadiusMd}"
+				Padding="14,12"
+				Margin="0,0,0,12">
+			<StackPanel>
+				<TextBlock Text="How it works"
+						   FontWeight="SemiBold"
+						   Foreground="{DynamicResource PrimaryText}"
+						   FontSize="{StaticResource FontSm}"
+						   Margin="0,0,0,6"/>
+				<TextBlock Foreground="{DynamicResource SecondaryText}"
+						   FontSize="{StaticResource FontXs}"
+						   TextWrapping="Wrap">
+					<Run Text="1. Click"/>
+					<Run Text=" Sign in with Browser " FontWeight="SemiBold"
+						 Foreground="{DynamicResource PrimaryText}"/>
+					<Run Text="below."/>
+					<LineBreak/>
+					<Run Text="2. Your browser will open — enter the code shown here."/>
+					<LineBreak/>
+					<Run Text="3. Approve the request. This window updates automatically."/>
+				</TextBlock>
+			</StackPanel>
+		</Border>
 
-    <!-- Host -->
-    <Label Content="Host  (e.g. github.com, gitlab.com, your-enterprise.com)"/>
-    <TextBox x:Name="HostBox"
-             Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}"
-             Margin="0,0,0,14"/>
+		<!-- ── Device code card (appears after flow starts) ─────── -->
+		<Border x:Name="DeviceCodeCard"
+				Background="{DynamicResource CardBg}"
+				BorderBrush="{DynamicResource AccentBrush}"
+				BorderThickness="1"
+				CornerRadius="{StaticResource RadiusMd}"
+				Padding="14,12"
+				Margin="0,0,0,12"
+				Visibility="Collapsed">
+			<Grid>
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto"/>
+					<RowDefinition Height="8"/>
+					<RowDefinition Height="Auto"/>
+				</Grid.RowDefinitions>
 
-    <!-- Token -->
-    <Label>
-      <TextBlock>
-        <Run Text="Personal Access Token"/>
-        <Run Text="  ·  " Foreground="{DynamicResource SecondaryText}"/>
-        <Run Text="{Binding TokenHint, Mode=OneWay}"
-             Foreground="{DynamicResource SecondaryText}"
-             FontStyle="Italic"/>
-      </TextBlock>
-    </Label>
-    <Grid Margin="0,0,0,10">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="8"/>
-        <ColumnDefinition Width="62"/>
-      </Grid.ColumnDefinitions>
+				<!-- Code row -->
+				<StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+					<TextBlock Text="Enter this code in your browser:"
+							   Foreground="{DynamicResource SecondaryText}"
+							   FontSize="{StaticResource FontXs}"
+							   VerticalAlignment="Center"
+							   Margin="0,0,10,0"/>
+					<TextBlock x:Name="UserCodeText"
+							   FontFamily="{StaticResource MonoFont}"
+							   FontSize="22"
+							   FontWeight="Bold"
+							   Foreground="{DynamicResource AccentBrush}"
+							   VerticalAlignment="Center"
+							   Margin="0,0,10,0"/>
+					<Button Content="Copy"
+							Padding="8,4"
+							FontSize="11"
+							Click="CopyCodeBtn_Click"
+							ToolTip="Copy code to clipboard"/>
+				</StackPanel>
 
-      <!-- Password box (shown by default) -->
-      <PasswordBox x:Name="TokenPasswordBox" Grid.Column="0"
-                   PasswordChanged="TokenPasswordBox_PasswordChanged"/>
+				<!-- Link row -->
+				<StackPanel Grid.Row="2" Orientation="Horizontal">
+					<TextBlock Text="Open: "
+							   Foreground="{DynamicResource SecondaryText}"
+							   FontSize="{StaticResource FontXs}"
+							   VerticalAlignment="Center"/>
+					<TextBlock x:Name="VerificationUriText"
+							   FontSize="{StaticResource FontXs}"
+							   Foreground="{DynamicResource AccentBrush}"
+							   TextDecorations="Underline"
+							   Cursor="Hand"
+							   VerticalAlignment="Center"
+							   MouseLeftButtonUp="VerificationUri_Click"/>
+				</StackPanel>
+			</Grid>
+		</Border>
 
-      <!-- Plain text box (shown when "Show" is active) -->
-      <TextBox x:Name="TokenPlainBox" Grid.Column="0"
-               Visibility="Collapsed"
-               FontFamily="{StaticResource MonoFont}"
-               TextChanged="TokenPlainBox_TextChanged"/>
+		<!-- ── Spinner row (while waiting) ──────────────────────── -->
+		<Grid Margin="0,0,0,12"
+			  Visibility="{Binding IsOAuthPending, Converter={StaticResource BoolToVis}}">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="8"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+			<Canvas Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center">
+				<Canvas.RenderTransform>
+					<RotateTransform x:Name="SpinnerTransform" CenterX="8" CenterY="8"/>
+				</Canvas.RenderTransform>
+				<Path Stroke="{DynamicResource AccentBrush}" StrokeThickness="2"
+					  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+					  Data="M 8,2 A 6,6 0 1,1 2,8"/>
+			</Canvas>
+			<TextBlock Grid.Column="2"
+					   Text="{Binding OAuthStatus}"
+					   Foreground="{DynamicResource SecondaryText}"
+					   FontSize="{StaticResource FontXs}"
+					   VerticalAlignment="Center"/>
+		</Grid>
 
-      <Button x:Name="ShowHideBtn"
-              Grid.Column="2"
-              Content="Show"
-              Click="ShowHideBtn_Click"
-              ToolTip="Toggle token visibility"/>
-    </Grid>
+		<!-- ── Success banner ────────────────────────────────────── -->
+		<Border Background="{DynamicResource SuccessBgBrush}"
+				BorderBrush="{DynamicResource SuccessBrush}"
+				BorderThickness="1"
+				CornerRadius="{StaticResource RadiusMd}"
+				Padding="12,8"
+				Margin="0,0,0,12"
+				Visibility="{Binding OAuthCompleted, Converter={StaticResource BoolToVis}}">
+			<TextBlock Foreground="{DynamicResource SuccessBrush}"
+					   FontSize="{StaticResource FontSm}"
+					   Text="{Binding OAuthStatus}"/>
+		</Border>
 
-    <!-- Security note -->
-    <Border Background="{DynamicResource CardBg}"
-            BorderBrush="{DynamicResource SeparatorBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource RadiusMd}"
-            Padding="12,9"
-            Margin="0,0,0,20">
-      <TextBlock FontSize="{StaticResource FontXs}"
-                 Foreground="{DynamicResource SecondaryText}"
-                 TextWrapping="Wrap">
-        <Run Text="🔒"/>
-        <Run Text=" Token is stored encrypted in Windows Credential Manager (DPAPI). It is never written to disk in plaintext."/>
-      </TextBlock>
-    </Border>
+		<!-- ── Sign in button (hidden once complete) ─────────────── -->
+		<Button x:Name="SignInBtn"
+				Padding="14,9"
+				HorizontalAlignment="Left"
+				Click="SignInBtn_Click"
+				Margin="0,0,0,14">
+			<Button.Style>
+				<Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+					<Style.Triggers>
+						<DataTrigger Binding="{Binding OAuthCompleted}" Value="True">
+							<Setter Property="Visibility" Value="Collapsed"/>
+						</DataTrigger>
+						<DataTrigger Binding="{Binding IsOAuthPending}" Value="True">
+							<Setter Property="IsEnabled" Value="False"/>
+						</DataTrigger>
+					</Style.Triggers>
+				</Style>
+			</Button.Style>
+			<TextBlock>
+				<Run Text="🌐"/>
+				<Run Text="  Sign in with Browser"/>
+			</TextBlock>
+		</Button>
 
-    <!-- Validation error -->
-    <Border Background="{DynamicResource DangerBgBrush}"
-            BorderBrush="{DynamicResource DangerBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource RadiusMd}"
-            Padding="12,8"
-            Margin="0,0,0,14"
-            x:Name="ErrorBanner"
-            Visibility="Collapsed">
-      <TextBlock x:Name="ErrorText"
-                 Foreground="{DynamicResource DangerBrush}"
-                 FontSize="{StaticResource FontSm}"
-                 TextWrapping="Wrap"/>
-    </Border>
+		<!-- ── Security note ─────────────────────────────────────── -->
+		<Border Background="{DynamicResource CardBg}"
+				BorderBrush="{DynamicResource SeparatorBrush}"
+				BorderThickness="1"
+				CornerRadius="{StaticResource RadiusMd}"
+				Padding="12,9"
+				Margin="0,0,0,20">
+			<TextBlock FontSize="{StaticResource FontXs}"
+					   Foreground="{DynamicResource SecondaryText}"
+					   TextWrapping="Wrap">
+				<Run Text="🔒"/>
+				<Run Text=" OAuth tokens are stored encrypted in Windows Credential Manager. No passwords are stored. Tokens can be revoked at any time on your provider's website."/>
+			</TextBlock>
+		</Border>
 
-    <!-- Buttons -->
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-      <Button Content="Cancel"
-              Width="90"
-              Margin="0,0,10,0"
-              IsCancel="True"
-              Click="CancelBtn_Click"/>
-      <Button Content="Save Account"
-              Style="{StaticResource AccentButton}"
-              Width="130"
-              IsDefault="True"
-              Click="SaveBtn_Click"/>
-    </StackPanel>
+		<!-- ── Validation error ───────────────────────────────────── -->
+		<Border x:Name="ErrorBanner"
+				Background="{DynamicResource DangerBgBrush}"
+				BorderBrush="{DynamicResource DangerBrush}"
+				BorderThickness="1"
+				CornerRadius="{StaticResource RadiusMd}"
+				Padding="12,8"
+				Margin="0,0,0,14"
+				Visibility="Collapsed">
+			<TextBlock x:Name="ErrorText"
+					   Foreground="{DynamicResource DangerBrush}"
+					   FontSize="{StaticResource FontSm}"
+					   TextWrapping="Wrap"/>
+		</Border>
 
-  </StackPanel>
+		<!-- ── Action buttons ─────────────────────────────────────── -->
+		<StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+			<Button Content="Cancel"
+					Width="90"
+					Margin="0,0,10,0"
+					IsCancel="True"
+					Click="CancelBtn_Click"/>
+			<Button Content="Save Account"
+					Style="{StaticResource AccentButton}"
+					Width="130"
+					IsDefault="True"
+					Click="SaveBtn_Click"/>
+		</StackPanel>
+
+	</StackPanel>
 </Window>

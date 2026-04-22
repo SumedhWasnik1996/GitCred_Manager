@@ -3,6 +3,20 @@ using System.Text.Json.Serialization;
 namespace GitCredMan.Core.Models;
 
 // ────────────────────────────────────────────────────────────
+//  Auth method enum
+// ────────────────────────────────────────────────────────────
+
+/// <summary>How the account's credential was acquired.</summary>
+public enum AuthMethod
+{
+    /// <summary>User pasted a Personal Access Token.</summary>
+    Pat,
+
+    /// <summary>Token was obtained via the OAuth device-code flow.</summary>
+    OAuth,
+}
+
+// ────────────────────────────────────────────────────────────
 //  Account
 // ────────────────────────────────────────────────────────────
 
@@ -12,13 +26,19 @@ namespace GitCredMan.Core.Models;
 /// </summary>
 public sealed record class Account
 {
-    public string   Id          { get; init; } = Guid.NewGuid().ToString("D");
-    public string   Name        { get; set; }  = string.Empty;   // "Work GitHub"
-    public string   Username    { get; set; }  = string.Empty;
-    public string   Email       { get; set; }  = string.Empty;
-    public string   Host        { get; set; }  = "github.com";
-    public bool     IsDefault   { get; set; }
-    public DateTime CreatedAt   { get; init; } = DateTime.UtcNow;
+    public string Id { get; init; } = Guid.NewGuid().ToString("D");
+    public string Name { get; set; } = string.Empty;   // "Work GitHub"
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Host { get; set; } = "github.com";
+    public bool IsDefault { get; set; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// How this account's access token was acquired.
+    /// Persisted so the app knows whether to attempt a token refresh on expiry.
+    /// </summary>
+    public AuthMethod AuthMethod { get; set; } = AuthMethod.Pat;
 
     /// <summary>Not persisted — checked live from Credential Manager.</summary>
     [JsonIgnore]
@@ -34,6 +54,16 @@ public sealed record class Account
             ? $"{Username} · {Host}"
             : $"{Email} · {Host}";
 
+    // ── Credential Manager key helpers ───────────────────────
+
+    /// <summary>Key used to store the access token (PAT or OAuth access token).</summary>
+    [JsonIgnore]
+    public string CredentialKey => Id;
+
+    /// <summary>Key used to store the OAuth refresh token (null for PAT accounts).</summary>
+    [JsonIgnore]
+    public string? RefreshTokenKey =>
+        AuthMethod == AuthMethod.OAuth ? $"{Id}:refresh" : null;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -42,10 +72,10 @@ public sealed record class Account
 
 public sealed class Repository
 {
-    public string   Path         { get; set; }  = string.Empty;
-    public string   RemoteUrl    { get; set; }  = string.Empty;
-    public bool     HasRemote    { get; set; }
-    public string?  AccountId    { get; set; }   // null → global default
+    public string Path { get; set; } = string.Empty;
+    public string RemoteUrl { get; set; } = string.Empty;
+    public bool HasRemote { get; set; }
+    public string? AccountId { get; set; }   // null → global default
     public DateTime DiscoveredAt { get; init; } = DateTime.UtcNow;
 
     [JsonIgnore]
@@ -83,15 +113,15 @@ public sealed class Repository
 
 public sealed class AppSettings
 {
-    public List<Account>    Accounts          { get; set; } = [];
-    public List<Repository> Repositories      { get; set; } = [];
-    public string?          DefaultAccountId  { get; set; }
-    public int              ScanDepth         { get; set; } = 8;
-    public List<string>     ExcludedPaths     { get; set; } = [];
-    public AppTheme         Theme             { get; set; } = AppTheme.Dark;
-    public bool             MinimizeToTray    { get; set; } = true;
-    public bool             StartMinimized    { get; set; } = false;
-    public string           Version           { get; set; } = "1.0.0";
+    public List<Account> Accounts { get; set; } = [];
+    public List<Repository> Repositories { get; set; } = [];
+    public string? DefaultAccountId { get; set; }
+    public int ScanDepth { get; set; } = 8;
+    public List<string> ExcludedPaths { get; set; } = [];
+    public AppTheme Theme { get; set; } = AppTheme.Dark;
+    public bool MinimizeToTray { get; set; } = true;
+    public bool StartMinimized { get; set; } = false;
+    public string Version { get; set; } = "1.0.0";
 }
 
 // ────────────────────────────────────────────────────────────
@@ -110,7 +140,7 @@ public enum AppTheme
 
 public record OperationResult(bool Success, string? Error = null)
 {
-    public static OperationResult Ok()               => new(true);
+    public static OperationResult Ok() => new(true);
     public static OperationResult Fail(string error) => new(false, error);
 }
 
@@ -127,16 +157,16 @@ public record ScanProgress(string CurrentPath, int FoundCount, bool IsComplete =
 /// </summary>
 public sealed class DiscoveredIdentity
 {
-    public string  Username    { get; set; } = string.Empty;
-    public string  Email       { get; set; } = string.Empty;
-    public string  Host        { get; set; } = string.Empty;
-    public string  Source      { get; set; } = string.Empty; // "Global" or repo path
-    public bool    IsGlobal    { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Host { get; set; } = string.Empty;
+    public string Source { get; set; } = string.Empty; // "Global" or repo path
+    public bool IsGlobal { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
     public string DisplayName =>
         !string.IsNullOrEmpty(Username) ? Username
-        : !string.IsNullOrEmpty(Email)  ? Email
+        : !string.IsNullOrEmpty(Email) ? Email
         : "(unnamed)";
 
     [System.Text.Json.Serialization.JsonIgnore]

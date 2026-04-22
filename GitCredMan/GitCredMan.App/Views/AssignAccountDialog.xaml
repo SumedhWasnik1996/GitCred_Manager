@@ -10,68 +10,153 @@
         ShowInTaskbar="False"
         Background="{DynamicResource PanelBg}">
 
-  <Window.Resources>
-    <conv:BoolToVisibility  x:Key="BoolToVis"/>
-    <conv:InverseBool       x:Key="InvBool"/>
-  </Window.Resources>
+	<Window.Resources>
+		<conv:BoolToVisibility  x:Key="BoolToVis"/>
+		<conv:InverseBool       x:Key="InvBool"/>
 
-  <StackPanel Margin="28,24,28,24">
+		<!--
+      Full ComboBox ControlTemplate so the selected-item area always uses
+      our theme colours (the default WPF template hard-codes a white/system bg).
+    -->
+		<ControlTemplate x:Key="ThemedComboBox" TargetType="ComboBox">
+			<Grid>
+				<Border x:Name="Border"
+						Background="{DynamicResource InputBg}"
+						BorderBrush="{DynamicResource InputBorder}"
+						BorderThickness="1"
+						CornerRadius="{StaticResource RadiusMd}">
+					<Grid>
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="28"/>
+						</Grid.ColumnDefinitions>
 
-    <TextBlock Text="Assign Account to Repository"
-               FontSize="{StaticResource FontLg}"
-               FontWeight="SemiBold"
-               Foreground="{DynamicResource PrimaryText}"
-               Margin="0,0,0,6"/>
+						<!-- Selected-item presenter -->
+						<ContentPresenter Grid.Column="0"
+										  Content="{TemplateBinding SelectionBoxItem}"
+										  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+										  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+										  Margin="10,6,4,6"
+										  VerticalAlignment="Center"
+										  IsHitTestVisible="False"
+										  TextElement.Foreground="{DynamicResource PrimaryText}"/>
 
-    <!-- Repo path -->
-    <TextBlock Text="{Binding Repository.Path}"
-               FontFamily="{StaticResource MonoFont}"
-               FontSize="{StaticResource FontXs}"
-               Foreground="{DynamicResource SecondaryText}"
-               TextTrimming="CharacterEllipsis"
-               Margin="0,0,0,20"/>
+						<!-- Chevron -->
+						<Path Grid.Column="1"
+							  Data="M 0,0 L 6,6 L 12,0"
+							  Stroke="{DynamicResource SecondaryText}"
+							  StrokeThickness="1.5"
+							  StrokeLineJoin="Round"
+							  HorizontalAlignment="Center"
+							  VerticalAlignment="Center"
+							  IsHitTestVisible="False"/>
 
-    <!-- Use default radio -->
-    <RadioButton Content="Use global default account"
-                 IsChecked="{Binding UseDefault}"
-                 GroupName="AssignGroup"
-                 Foreground="{DynamicResource PrimaryText}"
-                 Margin="0,0,0,10"/>
+						<!-- Invisible toggle button over the whole area -->
+						<ToggleButton Grid.ColumnSpan="2"
+									  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                      RelativeSource={RelativeSource TemplatedParent}}"
+									  Focusable="False"
+									  Background="Transparent"
+									  BorderThickness="0"/>
+					</Grid>
+				</Border>
 
-    <!-- Specific account radio -->
-    <RadioButton Content="Use a specific account:"
-                 IsChecked="{Binding UseDefault, Converter={StaticResource InvBool}}"
-                 GroupName="AssignGroup"
-                 Foreground="{DynamicResource PrimaryText}"
-                 Margin="0,0,0,8"/>
+				<!-- Drop-down popup -->
+				<Popup x:Name="Popup"
+					   Placement="Bottom"
+					   IsOpen="{TemplateBinding IsDropDownOpen}"
+					   AllowsTransparency="True"
+					   Focusable="False"
+					   PopupAnimation="Slide">
+					<Grid MinWidth="{TemplateBinding ActualWidth}"
+						  MaxHeight="{TemplateBinding MaxDropDownHeight}">
+						<Border Background="{DynamicResource PanelBg}"
+								BorderBrush="{DynamicResource SeparatorBrush}"
+								BorderThickness="1"
+								CornerRadius="{StaticResource RadiusMd}">
+							<Border.Effect>
+								<DropShadowEffect Color="Black" Opacity="0.35"
+												  BlurRadius="10" ShadowDepth="2"/>
+							</Border.Effect>
+							<ScrollViewer CanContentScroll="True" Padding="0,4">
+								<ItemsPresenter/>
+							</ScrollViewer>
+						</Border>
+					</Grid>
+				</Popup>
+			</Grid>
 
-    <ComboBox ItemsSource="{Binding Accounts}"
-              SelectedItem="{Binding SelectedAccount}"
-              IsEnabled="{Binding UseDefault, Converter={StaticResource InvBool}}"
-              Margin="20,0,0,20">
-      <ComboBox.ItemTemplate>
-        <DataTemplate>
-          <StackPanel Orientation="Horizontal" Margin="0,3">
-            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                       Foreground="{DynamicResource PrimaryText}"/>
-            <TextBlock Text="  ·  " Foreground="{DynamicResource SecondaryText}"/>
-            <TextBlock Text="{Binding DisplaySummary}"
-                       Foreground="{DynamicResource SecondaryText}"
-                       FontSize="{StaticResource FontSm}"/>
-          </StackPanel>
-        </DataTemplate>
-      </ComboBox.ItemTemplate>
-    </ComboBox>
+			<ControlTemplate.Triggers>
+				<Trigger Property="IsMouseOver" Value="True">
+					<Setter TargetName="Border" Property="BorderBrush"
+							Value="{DynamicResource AccentBrush}"/>
+				</Trigger>
+				<Trigger Property="IsEnabled" Value="False">
+					<Setter Property="Opacity" Value="0.45"/>
+				</Trigger>
+			</ControlTemplate.Triggers>
+		</ControlTemplate>
+	</Window.Resources>
 
-    <!-- Buttons -->
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-      <Button Content="Cancel" Width="80" Margin="0,0,10,0"
-              IsCancel="True" Click="CancelBtn_Click"/>
-      <Button Content="Apply" Width="90"
-              Style="{StaticResource AccentButton}"
-              IsDefault="True"
-              Click="ApplyBtn_Click"/>
-    </StackPanel>
+	<StackPanel Margin="28,24,28,24">
 
-  </StackPanel>
+		<TextBlock Text="Assign Account to Repository"
+				   FontSize="{StaticResource FontLg}"
+				   FontWeight="SemiBold"
+				   Foreground="{DynamicResource PrimaryText}"
+				   Margin="0,0,0,6"/>
+
+		<!-- Repo path -->
+		<TextBlock Text="{Binding Repository.Path}"
+				   FontFamily="{StaticResource MonoFont}"
+				   FontSize="{StaticResource FontXs}"
+				   Foreground="{DynamicResource SecondaryText}"
+				   TextTrimming="CharacterEllipsis"
+				   Margin="0,0,0,20"/>
+
+		<!-- Use default radio -->
+		<RadioButton Content="Use global default account"
+					 IsChecked="{Binding UseDefault}"
+					 GroupName="AssignGroup"
+					 Foreground="{DynamicResource PrimaryText}"
+					 Margin="0,0,0,10"/>
+
+		<!-- Specific account radio -->
+		<RadioButton Content="Use a specific account:"
+					 IsChecked="{Binding UseDefault, Converter={StaticResource InvBool}}"
+					 GroupName="AssignGroup"
+					 Foreground="{DynamicResource PrimaryText}"
+					 Margin="0,0,0,8"/>
+
+		<!-- ComboBox with themed template so selected text is always visible -->
+		<ComboBox ItemsSource="{Binding Accounts}"
+				  SelectedItem="{Binding SelectedAccount}"
+				  IsEnabled="{Binding UseDefault, Converter={StaticResource InvBool}}"
+				  Template="{StaticResource ThemedComboBox}"
+				  Margin="20,0,0,20">
+			<ComboBox.ItemTemplate>
+				<DataTemplate>
+					<StackPanel Orientation="Horizontal" Margin="0,3">
+						<TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+								   Foreground="{DynamicResource PrimaryText}"/>
+						<TextBlock Text="  ·  " Foreground="{DynamicResource SecondaryText}"/>
+						<TextBlock Text="{Binding DisplaySummary}"
+								   Foreground="{DynamicResource SecondaryText}"
+								   FontSize="{StaticResource FontSm}"/>
+					</StackPanel>
+				</DataTemplate>
+			</ComboBox.ItemTemplate>
+		</ComboBox>
+
+		<!-- Buttons -->
+		<StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+			<Button Content="Cancel" Width="80" Margin="0,0,10,0"
+					IsCancel="True" Click="CancelBtn_Click"/>
+			<Button Content="Apply" Width="90"
+					Style="{StaticResource AccentButton}"
+					IsDefault="True"
+					Click="ApplyBtn_Click"/>
+		</StackPanel>
+
+	</StackPanel>
 </Window>
